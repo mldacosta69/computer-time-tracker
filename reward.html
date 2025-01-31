@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Computer Time Tracker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 50px;
+      background-color: #f2f2f2;
+    }
+    #timeDisplay {
+      font-size: 2em;
+      margin-bottom: 20px;
+    }
+    button {
+      font-size: 1em;
+      padding: 10px 20px;
+      margin: 5px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Computer Time Tracker</h1>
+  <div id="timeDisplay">Time Left: 1h 0m 0s</div>
+  <button id="startBtn">Start Session</button>
+  <button id="stopBtn">Stop Session</button>
+  <button id="rewardBtn">Reward Time</button>
+  
+  <script>
+    // If there's a saved time in localStorage, use it; otherwise, default to 60 minutes (3600 seconds)
+    let timeLeft = parseInt(localStorage.getItem('timeLeft'), 10);
+    if (isNaN(timeLeft)) {
+      timeLeft = 3600;
+    }
+    
+    let timer = null;
+    const timeDisplay = document.getElementById("timeDisplay");
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const rewardBtn = document.getElementById("rewardBtn");
+
+    // Helper function to format seconds into hours, minutes, and seconds
+    function formatTime(seconds) {
+      const hrs = Math.floor(seconds / 3600);
+      const mins = Math.floor((seconds % 3600) / 60);
+      const secs = seconds % 60;
+      return `${hrs}h ${mins}m ${secs}s`;
+    }
+
+    // Save the current timeLeft value to localStorage
+    function saveTime() {
+      localStorage.setItem('timeLeft', timeLeft);
+    }
+
+    // Update display with the formatted time and save it
+    function updateDisplay() {
+      timeDisplay.textContent = "Time Left: " + formatTime(timeLeft);
+      saveTime();
+    }
+
+    // Countdown logic
+    function startSession() {
+      if (timer !== null) {
+        return; // Prevent multiple timers
+      }
+      timer = setInterval(function() {
+        if (timeLeft <= 0) {
+          clearInterval(timer);
+          timer = null;
+          alert("Time's up!");
+          updateDisplay();
+        } else {
+          timeLeft--;
+          updateDisplay();
+        }
+      }, 1000);
+    }
+
+    // Stop the current session
+    function stopSession() {
+      if (timer !== null) {
+        clearInterval(timer);
+        timer = null;
+        alert("Session stopped.");
+      }
+    }
+
+    // Reward function, protected by a simple passcode prompt
+    function addReward() {
+      const passcode = prompt("Enter admin passcode:");
+      if (passcode === "parent123") { // Change this to your preferred password
+        let rewardMinutes = prompt("How many minutes would you like to add?");
+        rewardMinutes = parseInt(rewardMinutes, 10);
+        if (!isNaN(rewardMinutes) && rewardMinutes > 0) {
+          // Convert reward minutes to seconds and add
+          timeLeft += rewardMinutes * 60;
+          updateDisplay();
+        } else {
+          alert("Please enter a valid number of minutes.");
+        }
+      } else {
+        alert("Incorrect passcode.");
+      }
+    }
+
+    // Event listeners for buttons
+    startBtn.addEventListener("click", startSession);
+    stopBtn.addEventListener("click", stopSession);
+    rewardBtn.addEventListener("click", addReward);
+
+    // Initial display update
+    updateDisplay();
+  </script>
+</body>
+</html>
