@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Instant Rewards!!! 🌟</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 40px;
+      background-color: #f2f2f2;
+    }
+    #timerDisplay {
+      font-size: 3em;
+      margin: 20px 0;
+    }
+    .button-row {
+      margin-top: 20px;
+    }
+    /* Main control buttons: keep these as-is */
+    .button-row button {
+      font-size: 1em;
+      padding: 10px 20px;
+      margin: 10px;
+      cursor: pointer;
+    }
+    /* Instant Rewards and Swear Jar sections */
+    .reward-section, .swear-jar-section {
+      max-width: 400px;
+      margin: 30px auto;
+      text-align: left;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .reward-section h2, .swear-jar-section h2 {
+      margin-bottom: 10px;
+    }
+    /* Full-width buttons with 20px padding in these sections */
+    .reward-section button, .swear-jar-section button {
+      width: 100%;
+      padding: 20px;
+      box-sizing: border-box;
+      margin: 10px 0;
+      cursor: pointer;
+    }
+    #todayDate {
+      font-size: 0.8em;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <h1>Computer Time</h1>
+  <div id="timerDisplay">Loading...</div>
+  
+  <!-- Main control buttons -->
+  <div class="button-row">
+    <button id="startClockBtn">Start Clock</button>
+    <button id="stopClockBtn">Stop Clock</button>
+    <button id="rewardBtn">Reward Time</button>
+    <button id="penaltyBtn">Penalty Minutes</button>
+  </div>
+  
+  <!-- Instant Rewards Section -->
+  <div class="reward-section">
+    <h2>Instant rewards!!! 🌟 <span id="todayDate"></span></h2>
+    <button class="instantReward" data-reward="reward1">Go to School On Time</button>
+    <button class="instantReward" data-reward="reward2">Go to Bed On Time</button>
+    <button class="instantReward" data-reward="reward3">Pick Out Clothes</button>
+    <button class="instantReward" data-reward="reward4">Write Journal</button>
+  </div>
+  
+  <!-- Swear Jar Section -->
+  <div class="swear-jar-section">
+    <h2>Swear Jar 🤬</h2>
+    <button id="swearJarBtn">Penalize</button>
+  </div>
+  
+  <script>
+    // Remove any query parameters on load to avoid unintended updates.
+    if (window.location.search) {
+      history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    // Set today's date in the Instant Rewards header.
+    function getTodayString() {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = ("0" + (today.getMonth() + 1)).slice(-2);
+      const dd = ("0" + today.getDate()).slice(-2);
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    document.getElementById("todayDate").textContent = getTodayString();
+    
+    // Your deployed Apps Script web app URL
+    const apiURL = "https://script.google.com/macros/s/AKfycbxbZWiwVJ7wf8DMtyq4mLgKvxD70xvhdcuf2nplU4vXEH9RLkoyxCafu8zLODWPzQNd/exec";
+    
+    let timeLeft = 0;             // Time (in seconds) fetched from the sheet
+    let countdownInterval = null; // Holds the countdown timer interval reference
+    const timerDisplay = document.getElementById("timerDisplay");
+    
+    // Main control button elements
+    const startClockBtn = document.getElementById("startClockBtn");
+    const stopClockBtn = document.getElementById("stopClockBtn");
+    const rewardBtn = document.getElementById("rewardBtn");
+    const penaltyBtn = document.getElementById("penaltyBtn");
+    
+    // Instant reward and swear jar button elements
+    const instantRewardButtons = document.querySelectorAll(".instantReward");
+    const swearJarBtn = document.getElementById("swearJarBtn");
+    
+    // Helper: Convert seconds into "Xh Ym Zs" format
+    function formatTime(seconds) {
+      const hrs = Math.floor(seconds / 3600);
+      const mins = Math.floor((seconds % 3600) / 60);
+      const secs = seconds % 60;
+      return `${hrs}h ${mins}m ${secs}s`;
+    }
+    
+    // Update the displayed timer
+    function updateDisplay() {
+      timerDisplay.textContent = "Time Left: " + formatTime(timeLeft);
+    }
+    
+    // Start the countdown timer (updates every second)
+    function startCountdown() {
+      if (countdownInterval !== null) return; // Prevent multiple intervals
+      countdownInterval = setInterval(() => {
+        if (timeLeft <= 0) {
+          clearInterval(countdownInterval);
+          countdownInterval = null;
+          timerDisplay.textContent = "Time's up!";
+        } else {
+          timeLeft--;
+          updateDisplay();
+        }
+      }, 1000);
+    }
+    
+    // Stop the countdown timer
+    function stopCountdown() {
+      if (countdownInterval !== null) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+      }
+    }
+    
+    // Fetch the current time from the Google Sheet using a GET request
+    function fetchTimeData() {
+      fetch(apiURL + "?t=" + new Date().getTime())
+        .then(response => response.json())
+        .then(data => {
+          console.log("GET response:", data);
+          if (data.timeLeft !== undefined) {
+            timeLeft = parseInt(data.timeLeft, 10);
+          } else if (data.currentValue !== undefined) {
+            timeLeft = parseInt(data.currentValue, 10);
+          } else {
+            timerDisplay.textContent = "Error: No valid time value received.";
+            return;
+          }
+          updateDisplay();
+          // Do not auto-start the countdown; user must click "Start Clock"
+        })
+        .catch(err => {
+          console.error("Error fetching time data:", err);
+          timerDisplay.textContent = "Error fetching time data.";
+        });
+    }
+    
+    // Update the Google Sheet by sending a GET request with a "newValue" query parameter.
+    function updateSheet(newTime, extraParams = "") {
+      const updateURL = `${apiURL}?newValue=${encodeURIComponent(newTime)}${extraParams}&t=${new Date().getTime()}`;
+      console.log("Sending update URL:", updateURL);
+      fetch(updateURL)
+        .then(response => response.json())
+        .then(data => {
+          console.log("Update response:", data);
+          // We are not re-fetching the value here to preserve the local timer state.
+        })
+        .catch(err => {
+          console.error("Error updating sheet:", err);
+          alert("Error updating sheet.");
+        });
+    }
+    
+    // Reward function: prompt for admin passcode and minutes to add, then update timer and sheet.
+    function rewardTime() {
+      const passcode = prompt("Enter admin passcode:");
+      if (passcode !== "parent246") {
+        alert("Incorrect passcode.");
+        return;
+      }
+      let rewardMinutes = prompt("How many minutes to add?");
+      rewardMinutes = parseInt(rewardMinutes, 10);
+      if (isNaN(rewardMinutes) || rewardMinutes <= 0) {
+        alert("Please enter a valid number of minutes.");
+        return;
+      }
+      const additionalSeconds = rewardMinutes * 60;
+      timeLeft += additionalSeconds;
+      updateDisplay();
+      stopCountdown();
+      updateSheet(timeLeft);
+      startCountdown();
+    }
+    
+    // Penalty function: prompt for admin passcode and minutes to remove, then update timer and sheet.
+    function penaltyTime() {
+      const passcode = prompt("Enter admin passcode:");
+      if (passcode !== "parent246") {
+        alert("Incorrect passcode.");
+        return;
+      }
+      let penaltyMinutes = prompt("How many minutes to remove?");
+      penaltyMinutes = parseInt(penaltyMinutes, 10);
+      if (isNaN(penaltyMinutes) || penaltyMinutes <= 0) {
+        alert("Please enter a valid number of minutes.");
+        return;
+      }
+      const penaltySeconds = penaltyMinutes * 60;
+      timeLeft -= penaltySeconds;
+      if (timeLeft < 0) timeLeft = 0;
+      updateDisplay();
+      stopCountdown();
+      updateSheet(timeLeft);
+      startCountdown();
+    }
+    
+    // Attach event listeners for main control buttons.
+    startClockBtn.addEventListener("click", startCountdown);
+    stopClockBtn.addEventListener("click", () => {
+      stopCountdown();
+      updateSheet(timeLeft);
+    });
+    rewardBtn.addEventListener("click", rewardTime);
+    penaltyBtn.addEventListener("click", penaltyTime);
+    
+    // Attach event listeners for the instant reward buttons.
+    instantRewardButtons.forEach(button => {
+      button.addEventListener("click", () => {
+        const passcode = prompt("Enter admin passcode for instant reward:");
+        if (passcode !== "parent246") {
+          alert("Incorrect passcode.");
+          return;
+        }
+        // Fixed reward: add 30 minutes = 1800 seconds.
+        timeLeft += 1800;
+        updateDisplay();
+        updateSheet(timeLeft);
+      });
+    });
+    
+    // Attach event listener for the swear jar button.
+    swearJarBtn.addEventListener("click", () => {
+      const passcode = prompt("Enter admin passcode for swear jar penalty:");
+      if (passcode !== "parent246") {
+        alert("Incorrect passcode.");
+        return;
+      }
+      // Fixed penalty: remove 5 minutes = 300 seconds.
+      timeLeft -= 1800;
+      if (timeLeft < 0) timeLeft = 0;
+      updateDisplay();
+      updateSheet(timeLeft);
+    });
+    
+    // On initial load, fetch the current time from the Google Sheet.
+    fetchTimeData();
+  </script>
+</body>
+</html>
